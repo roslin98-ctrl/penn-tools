@@ -45,7 +45,9 @@ packages/
   core/                       Shared TypeScript interfaces — no runtime deps
   platform/                   Prisma DB, LLM adapters, analytics
 tools/
-  course-finder/              Example tool (@penntools/tool-course-finder)
+  tool-1/                     First registered tool
+  tool-2/                     Second registered tool
+  ...
 docs/
   ARCHITECTURE.md             Architecture decisions and conventions
 scripts/
@@ -67,12 +69,16 @@ pnpm --filter @penntools/platform db:migrate  # create a new migration
 
 ## Adding a tool
 
-1. `mkdir tools/my-tool && cd tools/my-tool`
-2. `pnpm init` and add `@penntools/core` as a dependency
-3. Extend `Tool<MyInput, MyOutput>` and fill in `manifest` + `execute()`
-4. Add `@penntools/tool-my-tool` to `apps/web/package.json`
-5. Register it in `apps/web/src/lib/container.ts`
-6. Create `apps/web/src/app/tools/my-tool/page.tsx` for the tool UI
-7. Write tests in `src/__tests__/`
+The recommended way is to ask your coding agent:
+
+> "Register new team"
+
+The agent will prompt you for a title, tool ID, description, category, contributors, and mentor, then scaffold everything automatically.
+
+Alternatively, run the setup script directly:
+
+```bash
+bash scripts/registerTool.sh
+```
 
 See `docs/ARCHITECTURE.md` for the full tool system documentation.
