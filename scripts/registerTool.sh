@@ -89,6 +89,7 @@ echo "    tools/$ID/tsconfig.json"
 echo "    tools/$ID/src/types.ts"
 echo "    tools/$ID/src/${CLASS_NAME}.ts"
 echo "    tools/$ID/src/index.ts"
+echo "    apps/web/src/app/tools/$ID/page.tsx"
 echo ""
 echo "  Files to patch:"
 echo "    apps/web/package.json"
@@ -226,6 +227,21 @@ cat > "$TOOL_DIR/src/index.ts" <<EOF
 export { $CLASS_NAME } from "./${CLASS_NAME}.js";
 export type { ${CLASS_NAME}Input, ${CLASS_NAME}Output } from "./types.js";
 EOF
+
+# ── Create apps/web/src/app/tools/{ID}/page.tsx ───────────────────────────────
+info "Writing apps/web/src/app/tools/$ID/page.tsx..."
+mkdir -p "$REPO_ROOT/apps/web/src/app/tools/$ID"
+cat > "$REPO_ROOT/apps/web/src/app/tools/$ID/page.tsx" <<EOF
+export default function Tool${ID}Page() {
+  return (
+    <div>
+      <h1>$TITLE</h1>
+      <p>$DESCRIPTION</p>
+    </div>
+  );
+}
+EOF
+success "apps/web/src/app/tools/$ID/page.tsx created."
 
 # ── Patch apps/web/package.json ───────────────────────────────────────────────
 info "Patching apps/web/package.json..."
