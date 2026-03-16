@@ -30,6 +30,7 @@ export default function PlatformPlaygroundPage() {
   const [userApi, setUserApi] = useState<ApiState<UserResponse>>(idle());
   const [llmApi, setLlmApi] = useState<ApiState<LlmResponse>>(idle());
   const [llmPrompt, setLlmPrompt] = useState("");
+
   async function runUserApi() {
     setUserApi({ status: "loading", data: null, error: null });
     try {
@@ -46,14 +47,12 @@ export default function PlatformPlaygroundPage() {
     if (!llmPrompt.trim()) return;
     setLlmApi({ status: "loading", data: null, error: null });
     try {
-      const apiKey = typeof window !== "undefined"
-        ? (localStorage.getItem("penntools_api_key") ?? "")
-        : "";
+      const storedKey = typeof window !== "undefined" ? (localStorage.getItem("penntools_api_key") ?? "") : "";
       const res = await fetch("/api/llm/complete", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(apiKey ? { "X-Api-Key": apiKey } : {}),
+          ...(storedKey ? { "X-Api-Key": storedKey } : {}),
         },
         body: JSON.stringify({ prompt: llmPrompt }),
       });
@@ -229,7 +228,7 @@ interface ToolManifest {
         borderTop: "1px solid #e5e5e5",
       }}
     >
-      {/* Left nav — never scrolls, only 2 items */}
+      {/* Left nav — never scrolls */}
       <nav
         style={{
           width: 220,
