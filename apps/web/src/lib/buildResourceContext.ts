@@ -1,66 +1,49 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// buildResourceContext
+//
+// Retrieves the most relevant Penn resources for a given user query using
+// vector similarity search (RAG).  Falls back to returning all stored
+// resources (capped at MAX_FALLBACK) when no embedding provider is configured.
+//
+// The returned string is injected into the LLM system prompt.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import "server-only";
-import { toolRegistry } from "@penntools/core/tools";
-import resourcesData from "../data/resources.json";
+import { embeddingProvider, resourceRepository } from "./container";
+import type { Resource } from "@penntools/core/resources";
 
-interface StaticResource {
-  id: string;
-  title: string;
-  url: string;
-  description: string;
-  intent: string;
-  semanticTags: string[];
-}
+const TOP_K = 5;
+const MAX_FALLBACK = 10;
 
-function formatEntry(
-  title: string,
-  url: string,
-  description: string,
-  intent: string,
-  tags: string[],
-  index: number
-): string {
+function formatResource(r: Resource, index: number): string {
   return [
-    `${index + 1}. **${title}**`,
-    `   URL: ${url}`,
-    `   What it does: ${description}`,
-    `   When to suggest it: ${intent}`,
-    `   Keywords: ${tags.join(", ")}`,
+    `${index + 1}. **${r.title}**`,
+    `   URL: ${r.url}`,
+    `   ${r.content}`,
   ].join("\n");
 }
 
-export function buildResourceContext(): string {
-  const staticSection = (resourcesData.resources as StaticResource[]).map((r, i) =>
-    formatEntry(r.title, r.url, r.description, r.intent, r.semanticTags, i)
-  );
+export async function buildResourceContext(query: string): Promise<string> {
+  let results: Resource[];
 
-  const toolSection = toolRegistry.listManifests().map((m, i) =>
-    formatEntry(
-      m.title,
-      `/tools/${m.id}`,
-      m.description,
-      `Use the ${m.title} tool: ${m.description}`,
-      [m.id, m.title.toLowerCase()],
-      i
-    )
-  );
-
-  const parts: string[] = [];
-
-  if (staticSection.length > 0) {
-    parts.push(
-      "## Penn Resources\n" +
-        "Official University of Pennsylvania services and portals:\n\n" +
-        staticSection.join("\n\n")
-    );
+  if (embeddingProvider) {
+    try {
+      const queryEmbedding = await embeddingProvider.embed(query);
+      results = await resourceRepository.searchSimilar(queryEmbedding, TOP_K);
+    } catch {
+      // Embedding call failed — degrade gracefully
+      results = (await resourceRepository.listAll()).slice(0, MAX_FALLBACK);
+    }
+  } else {
+    results = (await resourceRepository.listAll()).slice(0, MAX_FALLBACK);
   }
 
-  if (toolSection.length > 0) {
-    parts.push(
-      "## AskPenn Tools\n" +
-        "Interactive tools built into this application. Recommend the URL so the user can navigate there:\n\n" +
-        toolSection.join("\n\n")
-    );
-  }
+  if (results.length === 0) return "";
 
-  return parts.join("\n\n");
+  const entries = results.map(formatResource).join("\n\n");
+  return (
+    "## Relevant Penn Resources\n" +
+    "Use the following resources to answer the user's question. Always include the URL.\n\n" +
+    entries
+  );
 }

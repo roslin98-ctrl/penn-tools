@@ -97,7 +97,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // ── Direct LLM path ───────────────────────────────────────────────────
     const history = await repositories.messages.findByChatId(chatId);
 
-    const resourceContext = buildResourceContext();
+    const resourceContext = await buildResourceContext(content);
     const systemPrompt = [
       "You are AskPenn, a helpful assistant for University of Pennsylvania students and staff.",
       "When answering questions, use the resource directory below to recommend relevant Penn services and tools. Always include the URL when recommending a resource. If no resource directly applies, answer from general knowledge.",

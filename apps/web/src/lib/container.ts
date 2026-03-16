@@ -21,12 +21,17 @@ import {
   PrismaMessageRepository,
   PrismaToolDataRepository,
   PrismaUserRepository,
+  PrismaResourceRepository,
   InMemoryChatRepository,
   InMemoryMessageRepository,
   InMemoryToolDataRepository,
   InMemoryUserRepository,
+  InMemoryResourceRepository,
 } from "@penntools/platform/db";
 import { OpenAIAdapter, AnthropicAdapter } from "@penntools/platform/llm";
+import { OpenAIEmbeddingAdapter } from "@penntools/platform/embeddings";
+import type { EmbeddingProvider } from "@penntools/core/embeddings";
+import type { ResourceRepository } from "@penntools/core/resources";
 import { PostHogAnalytics } from "@penntools/platform/analytics";
 import { AnonymousIdentityService } from "@penntools/platform/identity";
 import { NoopAnalytics } from "@penntools/core/analytics";
@@ -39,6 +44,10 @@ import type { UserId, User } from "@penntools/core/types";
 // ── Tool bootstrap ────────────────────────────────────────────────────────────
 import { PlatformPlaygroundTool } from "@penntools/tool-platform-playground";
 toolRegistry.register(new PlatformPlaygroundTool());
+
+// ── Resource seeding (fire-and-forget) ────────────────────────────────────────
+// Imported lazily to avoid a circular reference with the logger defined below.
+import { seedResources } from "./seedResources";
 
 // ── Repositories ──────────────────────────────────────────────────────────────
 // If DATABASE_URL is not set, use in-memory repositories so the app runs
@@ -64,6 +73,28 @@ export const repositories = useInMemory
       toolData: new PrismaToolDataRepository(prisma),
       users: new PrismaUserRepository(prisma),
     };
+
+// ── Embedding provider ─────────────────────────────────────────────────────
+// Only OpenAI provides an embeddings API we currently support.
+// If OPENAI_API_KEY is absent, embeddingProvider is null and RAG falls back
+// to returning a capped list of all stored resources.
+
+export const embeddingProvider: EmbeddingProvider | null =
+  process.env["OPENAI_API_KEY"]
+    ? new OpenAIEmbeddingAdapter(process.env["OPENAI_API_KEY"])
+    : null;
+
+if (!embeddingProvider) {
+  console.warn(
+    "[PennTools] OPENAI_API_KEY not set — semantic resource search disabled. Resources will not be embedded."
+  );
+}
+
+// ── Resource repository ────────────────────────────────────────────────────
+
+export const resourceRepository: ResourceRepository = useInMemory
+  ? new InMemoryResourceRepository()
+  : new PrismaResourceRepository(prisma);
 
 // ── LLM provider ──────────────────────────────────────────────────────────────
 // Reads OPENAI_API_KEY or ANTHROPIC_API_KEY from env.  Falls back to OpenAI.
@@ -122,6 +153,15 @@ export const logger = {
   error: (msg: string, error?: unknown) =>
     console.error(JSON.stringify({ level: "error", msg, error: String(error) })),
 };
+
+// ── Seed resources on startup (fire-and-forget) ────────────────────────────────
+// Runs after the logger is initialised so we can report progress.
+// Errors are caught inside seedResources and logged; they never crash the app.
+if (embeddingProvider) {
+  seedResources(embeddingProvider, resourceRepository, logger).catch((err) =>
+    logger.error("[container] seedResources unexpectedly threw", err)
+  );
+}
 
 // ── ToolRunner ────────────────────────────────────────────────────────────────
 
