@@ -12,7 +12,7 @@ interface UseChatResult {
   messages: Message[];
   chats: Chat[];
   isLoading: boolean;
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (content: string, overrideChatId?: string) => Promise<void>;
   startNewChat: () => Promise<string | null>;
 }
 
@@ -39,20 +39,21 @@ export function useChat({ userId, chatId }: UseChatOptions): UseChatResult {
     setIsLoading(true);
     fetch(`/api/chats/${chatId}`)
       .then((r) => r.json())
-      .then((data: { messages: Message[] }) => setMessages(data.messages))
+      .then((data: { messages: Message[] }) => setMessages(data.messages ?? []))
       .catch(console.error)
       .finally(() => setIsLoading(false));
   }, [chatId]);
 
   const sendMessage = useCallback(
-    async (content: string) => {
-      if (!chatId) return;
+    async (content: string, overrideChatId?: string) => {
+      const effectiveChatId = overrideChatId ?? chatId;
+      if (!effectiveChatId) return;
       setIsLoading(true);
 
       // Optimistic user message (no id yet).
       const optimistic: Message = {
         id: `optimistic-${Date.now()}`,
-        chatId,
+        chatId: effectiveChatId,
         userId: userId ?? "",
         role: "user",
         content,
@@ -71,7 +72,7 @@ export function useChat({ userId, chatId }: UseChatOptions): UseChatResult {
             "Content-Type": "application/json",
             ...(apiKey ? { "X-Api-Key": apiKey } : {}),
           },
-          body: JSON.stringify({ chatId, content }),
+          body: JSON.stringify({ chatId: effectiveChatId, content }),
         });
         const data = (await res.json()) as {
           userMessage: Message;
@@ -81,8 +82,7 @@ export function useChat({ userId, chatId }: UseChatOptions): UseChatResult {
         // Replace the optimistic message with the real one.
         setMessages((prev) => [
           ...prev.filter((m) => m.id !== optimistic.id),
-          data.userMessage,
-          data.assistantMessage,
+          ...[data.userMessage, data.assistantMessage].filter(Boolean),
         ]);
 
         // Refresh chat list to update title / ordering.

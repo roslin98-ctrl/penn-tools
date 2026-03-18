@@ -99,8 +99,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const resourceContext = await buildResourceContext(content);
     const systemPrompt = [
-      "You are AskPenn, a helpful assistant for University of Pennsylvania students and staff.",
-      "When answering questions, use the resource directory below to recommend relevant Penn services and tools. Always include the URL when recommending a resource. If no resource directly applies, answer from general knowledge.",
+      "You are AskPenn, a concise and helpful assistant for University of Pennsylvania students and staff. Keep answers short — use 1-3 sentences for simple questions. When the question involves a list of items (e.g. required documents, steps, things to carry), you MUST respond with a bullet list using '•' for each item. Do NOT summarize lists into a sentence — always enumerate them.",
+      "CRITICAL INSTRUCTION: Before answering ANY question, you MUST first search through the Penn Resources and AskPenn Tools listed below. If a resource contains specific details (like a list of documents), include those details directly in your answer — do NOT just tell the user to visit the link. NEVER give generic advice when a Penn-specific resource exists below. FORMATTING RULE: If your answer includes a link, always place it at the very end on its own line as a plain URL (e.g. https://example.com) so it is clearly visible and easy to copy.",
       resourceContext,
     ]
       .filter(Boolean)
@@ -108,6 +108,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const llmResponse = await requestLlm.complete({
       systemPrompt,
+      temperature: 0,
       messages: history.map((m) => ({
         role: m.role === "tool" ? "assistant" : m.role,
         content: m.content,
