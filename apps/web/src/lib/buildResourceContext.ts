@@ -84,10 +84,11 @@ export async function buildResourceContext(_query: string): Promise<string> {
       formatEntry(r.title, r.url, r.description, r.intent, r.semanticTags, i)
   );
 
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const toolSection = toolRegistry.listManifests().map((m, i) =>
     formatEntry(
       m.title,
-      `/tools/${m.id}`,
+      `${baseUrl}/tools/${m.id}`,
       m.description,
       `Use the ${m.title} tool: ${m.description}`,
       [m.id, m.title.toLowerCase()],

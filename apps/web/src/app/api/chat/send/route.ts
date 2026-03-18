@@ -108,6 +108,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const llmResponse = await requestLlm.complete({
       systemPrompt,
+      model: "gpt-4o-mini",
       temperature: 0,
       messages: history.map((m) => ({
         role: m.role === "tool" ? "assistant" : m.role,
